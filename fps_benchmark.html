@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>BLACKARCH • FPS BENCHMARK</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:#000;overflow:hidden;font-family:'Share Tech Mono',monospace;touch-action:none}
+  canvas#main{position:fixed;top:0;left:0;width:100%;height:100%}
+
+  #ui{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+
+  /* STATUS BAR */
+  #statusbar{position:absolute;top:0;left:0;right:0;height:36px;background:rgba(0,14,10,0.95);border-bottom:1px solid #00ffcc44;display:flex;align-items:center;padding:0 14px;gap:16px;pointer-events:all}
+  .sb{font-size:10px;color:#00ff88;letter-spacing:1.5px;display:flex;align-items:center;gap:5px}
+  .dot{width:6px;height:6px;border-radius:50%;background:#00ff88;animation:blink 1s infinite}
+  .dot.r{background:#ff3333;animation-delay:.5s}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+  #clock{margin-left:auto;color:#00ffcc;font-size:10px;letter-spacing:2px}
+
+  /* FPS COUNTER PRINCIPAL */
+  #fps-main{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+  #fps-num{font-family:'Orbitron',sans-serif;font-size:clamp(60px,15vw,140px);font-weight:900;line-height:1;letter-spacing:-2px;transition:color 0.3s}
+  #fps-label{font-size:clamp(10px,2vw,14px);color:#00ffcc88;letter-spacing:6px;margin-top:4px}
+  #fps-bar-wrap{width:clamp(200px,40vw,400px);height:6px;background:#001208;border:1px solid #00ffcc33;margin:12px auto 0;position:relative;overflow:hidden}
+  #fps-bar{height:100%;width:0%;transition:width 0.2s,background 0.3s}
+  #fps-bar::after{content:'';position:absolute;right:0;top:0;width:4px;height:100%;background:#fff;animation:blink .6s infinite}
+
+  /* PANELES STATS */
+  .panel{position:absolute;background:rgba(0,12,10,0.88);border:1px solid #00ffcc44;padding:12px 14px}
+  .panel::before{content:'';position:absolute;top:-1px;left:20px;right:20px;height:1px;background:linear-gradient(90deg,transparent,#00ffcc,transparent)}
+  .corner{position:absolute;width:8px;height:8px;border-color:#00ffcc;border-style:solid}
+  .tl{top:-1px;left:-1px;border-width:2px 0 0 2px}
+  .tr{top:-1px;right:-1px;border-width:2px 2px 0 0}
+  .bl{bottom:-1px;left:-1px;border-width:0 0 2px 2px}
+  .br{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+  .ptitle{font-family:'Orbitron',sans-serif;font-size:9px;color:#00ffcc;letter-spacing:3px;margin-bottom:8px;border-bottom:1px solid #00ffcc22;padding-bottom:6px}
+  .stat-row{display:flex;justify-content:space-between;align-items:center;font-size:10px;line-height:2;gap:12px}
+  .stat-row .k{color:#00ffcc88}
+  .stat-row .v{color:#00ff88;font-weight:bold}
+  .stat-row .v.warn{color:#ffaa00}
+  .stat-row .v.bad{color:#ff4455}
+
+  /* PANEL IZQUIERDA */
+  #panel-left{top:50px;left:10px;width:clamp(160px,22vw,210px)}
+
+  /* PANEL DERECHA */
+  #panel-right{top:50px;right:10px;width:clamp(160px,22vw,210px)}
+
+  /* BARRA PROGRESO MINI */
+  .mini-bar-wrap{background:#001208;border:1px solid #00ffcc22;height:5px;width:100%;margin:2px 0 4px}
+  .mini-bar{height:100%;transition:width .8s ease}
+
+  /* CONTROLES BENCHMARK */
+  #controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:10px;pointer-events:all;flex-wrap:wrap;justify-content:center}
+  .btn{font-family:'Share Tech Mono',monospace;font-size:11px;padding:8px 18px;border:1px solid #00ffcc55;background:rgba(0,20,15,0.9);color:#00ffcc;cursor:pointer;letter-spacing:1px;transition:all .2s;white-space:nowrap}
+  .btn:hover,.btn:active{background:rgba(0,60,45,0.9);border-color:#00ffcc;box-shadow:0 0 10px #00ffcc44}
+  .btn.active{background:rgba(0,80,55,0.9);border-color:#00ff88;color:#00ff88}
+  .btn.red{border-color:#ff333355;color:#ff5555}
+  .btn.red:hover,.btn.red:active{background:rgba(40,0,0,0.9);border-color:#ff3333;box-shadow:0 0 10px #ff333344}
+
+  /* RATING */
+  #rating{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none}
+  #rating-text{font-family:'Orbitron',sans-serif;font-size:clamp(12px,3vw,20px);letter-spacing:4px;transition:color .3s}
+  #rating-sub{font-size:9px;color:#00ffcc55;letter-spacing:2px;margin-top:3px}
+
+  /* GRAPH */
+  #graph-wrap{position:absolute;bottom:110px;left:50%;transform:translateX(-50%);width:clamp(200px,50vw,500px);pointer-events:none}
+  canvas#graph{width:100%;height:50px;display:block}
+  #graph-label{font-size:8px;color:#00ffcc44;letter-spacing:2px;text-align:center;margin-top:2px}
+
+  /* SCANLINE */
+  #scanline{position:absolute;width:100%;height:2px;background:linear-gradient(90deg,transparent,#00ffcc55,transparent);animation:scan 3s linear infinite;pointer-events:none}
+  @keyframes scan{0%{top:-2px}100%{top:100%}}
+
+  /* MODO STRESS */
+  #stress-label{position:absolute;top:44px;left:50%;transform:translateX(-50%);font-size:9px;color:#ff4455;letter-spacing:3px;display:none;animation:blink .5s infinite}
+
+  /* RESPONSIVE ocultar paneles en móvil pequeño */
+  @media(max-width:500px){
+    #panel-left,#panel-right{display:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="main"></canvas>
+
+<div id="ui">
+  <div id="scanline"></div>
+
+  <div id="statusbar">
+    <div class="sb"><div class="dot"></div>BENCHMARK ACTIVE</div>
+    <div class="sb"><div class="dot r"></div>GPU STRESS</div>
+    <div id="clock">--:--:-- UTC</div>
+  </div>
+
+  <div id="stress-label">● STRESS TEST ACTIVO</div>
+
+  <!-- FPS CENTRAL -->
+  <div id="fps-main">
+    <div id="fps-num">--</div>
+    <div id="fps-label">FRAMES PER SECOND</div>
+    <div id="fps-bar-wrap"><div id="fps-bar"></div></div>
+  </div>
+
+  <!-- RATING -->
+  <div id="rating">
+    <div id="rating-text">INICIANDO...</div>
+    <div id="rating-sub">BLACKARCH FPS BENCHMARK v2026</div>
+  </div>
+
+  <!-- GRAPH -->
+  <div id="graph-wrap">
+    <canvas id="graph" height="50"></canvas>
+    <div id="graph-label">HISTORIAL FPS — ÚLTIMOS 60 FRAMES</div>
+  </div>
+
+  <!-- PANEL IZQUIERDA -->
+  <div class="panel" id="panel-left">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="ptitle">◈ PERFORMANCE</div>
+    <div class="stat-row"><span class="k">FPS ACT</span><span class="v" id="s-fps">--</span></div>
+    <div class="stat-row"><span class="k">FPS MAX</span><span class="v" id="s-max">--</span></div>
+    <div class="stat-row"><span class="k">FPS MIN</span><span class="v" id="s-min">--</span></div>
+    <div class="stat-row"><span class="k">FPS AVG</span><span class="v" id="s-avg">--</span></div>
+    <div class="stat-row"><span class="k">1% LOW</span><span class="v warn" id="s-low">--</span></div>
+    <div class="stat-row"><span class="k">FRAMES</span><span class="v" id="s-frames">0</span></div>
+    <br/>
+    <div class="ptitle">◈ CARGA GPU</div>
+    <div class="stat-row"><span class="k">PARTICULAS</span><span class="v" id="s-parts">0</span></div>
+    <div class="mini-bar-wrap"><div class="mini-bar" id="b-parts" style="background:#00ff88"></div></div>
+    <div class="stat-row"><span class="k">DRAW CALLS</span><span class="v" id="s-draws">0</span></div>
+    <div class="mini-bar-wrap"><div class="mini-bar" id="b-draws" style="background:#ffaa00"></div></div>
+  </div>
+
+  <!-- PANEL DERECHA -->
+  <div class="panel" id="panel-right">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="ptitle">◉ SISTEMA</div>
+    <div class="stat-row"><span class="k">DISPOSITIVO</span><span class="v" id="s-device">--</span></div>
+    <div class="stat-row"><span class="k">RESOLUCION</span><span class="v" id="s-res">--</span></div>
+    <div class="stat-row"><span class="k">PIXEL RATIO</span><span class="v" id="s-dpr">--</span></div>
+    <div class="stat-row"><span class="k">MODO</span><span class="v" id="s-mode">NORMAL</span></div>
+    <div class="stat-row"><span class="k">TIEMPO</span><span class="v" id="s-time">0s</span></div>
+    <br/>
+    <div class="ptitle">◈ CALIDAD</div>
+    <div class="stat-row"><span class="k">RATING</span><span class="v" id="s-rating">--</span></div>
+    <div class="stat-row"><span class="k">ESTABILIDAD</span><span class="v" id="s-stab">--</span></div>
+    <div class="mini-bar-wrap"><div class="mini-bar" id="b-stab" style="background:#00ffcc"></div></div>
+  </div>
+
+  <!-- CONTROLES -->
+  <div id="controls">
+    <button class="btn active" id="btn-normal" onclick="setMode('normal')">NORMAL</button>
+    <button class="btn" id="btn-medium" onclick="setMode('medium')">MEDIO</button>
+    <button class="btn" id="btn-heavy" onclick="setMode('heavy')">PESADO</button>
+    <button class="btn red" id="btn-stress" onclick="setMode('stress')">STRESS MAX</button>
+    <button class="btn" onclick="resetStats()">RESET</button>
+  </div>
+</div>
+
+<script>
+const W = window.innerWidth, H = window.innerHeight;
+const canvas = document.getElementById('main');
+const ctx    = canvas.getContext('2d');
+canvas.width  = W;
+canvas.height = H;
+
+const graph   = document.getElementById('graph');
+const gctx    = graph.getContext('2d');
+graph.width   = graph.offsetWidth * devicePixelRatio || 500;
+
+// ── ESTADO ────────────────────────────────────────────
+let mode       = 'normal';
+let frameCount = 0;
+let fps        = 0;
+let fpsMax     = 0;
+let fpsMin     = Infinity;
+let fpsSum     = 0;
+let fpsSamples = 0;
+let fpsHistory = [];
+let startTime  = performance.now();
+let lastTime   = performance.now();
+let lastFPSTime= performance.now();
+let fpsFrames  = 0;
+let mouseX     = W/2, mouseY = H/2;
+let touchX     = W/2, touchY = H/2;
+
+// ── PARTÍCULAS ────────────────────────────────────────
+const PARTICLE_COUNTS = {normal:120, medium:400, heavy:900, stress:2000};
+let particles = [];
+
+function createParticle(){
+  return {
+    x: Math.random()*W, y: Math.random()*H,
+    vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2,
+    size: Math.random()*3+1,
+    life: Math.random(),
+    col: Math.random()>0.6 ? [0,255,204] : Math.random()>0.5 ? [0,255,136] : [255,52,52],
+    speed: 0.5+Math.random()*1.5,
+  };
+}
+
+function initParticles(){
+  const count = PARTICLE_COUNTS[mode];
+  particles = Array.from({length: count}, createParticle);
+}
+
+// ── MATRIX RAIN ────────────────────────────────────────
+const CHARS = '01アイウエオカキクケコ@#$%^&*サシスセソ';
+const COLS  = Math.floor(W/14);
+const drops = Array.from({length:COLS},()=>Math.random()*-50);
+
+function drawMatrix(){
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  ctx.fillRect(0,0,W,H);
+  ctx.font = '11px Share Tech Mono';
+  for(let i=0;i<COLS;i++){
+    const ch = CHARS[Math.floor(Math.random()*CHARS.length)];
+    const x  = i*14, y = drops[i]*16;
+    if(y>0 && y<H){
+      if(Math.random()>0.75){ctx.fillStyle='#ff2222'}
+      else{const b=60+Math.floor(Math.random()*120);ctx.fillStyle=`rgb(${b},8,8)`}
+      ctx.fillText(ch,x,y);
+    }
+    drops[i]+=0.6;
+    if(drops[i]*16>H && Math.random()>0.975) drops[i]=Math.random()*-40;
+  }
+}
+
+// ── CONEXIONES ─────────────────────────────────────────
+function drawConnections(){
+  const maxDist = mode==='stress'?200:mode==='heavy'?150:100;
+  const limit   = Math.min(particles.length, mode==='stress'?300:150);
+  for(let i=0;i<limit;i++){
+    for(let j=i+1;j<limit;j++){
+      const dx=particles[i].x-particles[j].x;
+      const dy=particles[i].y-particles[j].y;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<maxDist){
+        const alpha=1-d/maxDist;
+        ctx.strokeStyle=`rgba(0,255,204,${alpha*0.3})`;
+        ctx.lineWidth=0.5;
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x,particles[i].y);
+        ctx.lineTo(particles[j].x,particles[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+// ── ACTUALIZAR PARTÍCULAS ──────────────────────────────
+function updateParticles(){
+  for(const p of particles){
+    // Atracción al mouse/touch
+    const dx = mouseX - p.x;
+    const dy = mouseY - p.y;
+    const d  = Math.sqrt(dx*dx+dy*dy);
+    if(d<200){
+      p.vx += dx/d*0.3;
+      p.vy += dy/d*0.3;
+    }
+    p.vx *= 0.96; p.vy *= 0.96;
+    p.x  += p.vx; p.y  += p.vy;
+    p.life += 0.005;
+    if(p.x<0||p.x>W) p.vx*=-1;
+    if(p.y<0||p.y>H) p.vy*=-1;
+
+    const alpha = 0.4+Math.sin(p.life)*0.4;
+    ctx.fillStyle=`rgba(${p.col[0]},${p.col[1]},${p.col[2]},${alpha})`;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+    ctx.fill();
+
+    // Glow en stress
+    if(mode==='stress'||mode==='heavy'){
+      ctx.fillStyle=`rgba(${p.col[0]},${p.col[1]},${p.col[2]},${alpha*0.15})`;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.size*4,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+}
+
+// ── PLANETA CENTRAL ────────────────────────────────────
+let planetAngle = 0;
+const planetDots = Array.from({length:30},()=>({
+  a: Math.random()*Math.PI*2,
+  d: 0.3+Math.random()*0.6,
+  s: 1+Math.random()*3,
+}));
+
+function drawPlanet(){
+  const cx=W/2, cy=H/2;
+  const r = Math.min(W,H)*0.08;
+  planetAngle += 0.004;
+
+  // Glow
+  const grad = ctx.createRadialGradient(cx,cy,r*0.3,cx,cy,r*1.4);
+  grad.addColorStop(0,'rgba(0,255,204,0.04)');
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=grad;
+  ctx.beginPath();ctx.arc(cx,cy,r*1.4,0,Math.PI*2);ctx.fill();
+
+  // Anillos
+  for(let i=0;i<3;i++){
+    const off=(i+1)*r*0.2;
+    ctx.strokeStyle=`rgba(0,255,204,${0.1-i*0.03})`;
+    ctx.lineWidth=1;
+    ctx.setLineDash([8,6]);
+    ctx.beginPath();
+    ctx.ellipse(cx,cy,r+off,(r+off)*0.25,0,0,Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Base
+  ctx.fillStyle='#000d1a';
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#00ffcc';ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+
+  // Dots
+  for(const p of planetDots){
+    const a=p.a+planetAngle;
+    const px=cx+Math.cos(a)*r*p.d;
+    const py=cy+Math.sin(a)*r*p.d*0.85;
+    const dx=px-cx,dy=py-cy;
+    if(dx*dx+(dy/0.85)*(dy/0.85)>(r-2)**2) continue;
+    ctx.fillStyle='#00ffcc';
+    ctx.beginPath();ctx.arc(px,py,p.s,0,Math.PI*2);ctx.fill();
+  }
+}
+
+// ── EXTRAS STRESS ──────────────────────────────────────
+function drawExtras(){
+  if(mode==='stress'||mode==='heavy'){
+    // Lightning hacia mouse
+    for(let i=0;i<(mode==='stress'?3:1);i++){
+      let lx=W/2+Math.random()*100-50, ly=H/2+Math.random()*100-50;
+      ctx.strokeStyle=`rgba(0,255,204,${Math.random()*0.4})`;
+      ctx.lineWidth=Math.random()*2;
+      ctx.beginPath();ctx.moveTo(lx,ly);
+      for(let s=0;s<6;s++){
+        lx+=(mouseX-lx)*0.3+Math.random()*60-30;
+        ly+=(mouseY-ly)*0.3+Math.random()*60-30;
+        ctx.lineTo(lx,ly);
+      }
+      ctx.stroke();
+    }
+  }
+}
+
+// ── GRAPH ──────────────────────────────────────────────
+function drawGraph(){
+  const gw=graph.width, gh=graph.height;
+  gctx.clearRect(0,0,gw,gh);
+  gctx.fillStyle='rgba(0,10,8,0.8)';
+  gctx.fillRect(0,0,gw,gh);
+  gctx.strokeStyle='#00ffcc22';
+  gctx.lineWidth=0.5;
+  gctx.strokeRect(0,0,gw,gh);
+
+  if(fpsHistory.length<2) return;
+  const maxFPS=Math.max(...fpsHistory,60);
+  const step=gw/(fpsHistory.length-1);
+
+  // Grid
+  [30,60,90,120].forEach(v=>{
+    const y=gh-(v/maxFPS)*gh;
+    gctx.strokeStyle='rgba(0,255,204,0.1)';
+    gctx.beginPath();gctx.moveTo(0,y);gctx.lineTo(gw,y);gctx.stroke();
+  });
+
+  // Línea FPS
+  gctx.beginPath();
+  fpsHistory.forEach((f,i)=>{
+    const x=i*step;
+    const y=gh-(f/maxFPS)*gh;
+    i===0?gctx.moveTo(x,y):gctx.lineTo(x,y);
+  });
+  gctx.strokeStyle='#00ffcc';gctx.lineWidth=1.5;gctx.stroke();
+
+  // Fill
+  gctx.lineTo((fpsHistory.length-1)*step,gh);
+  gctx.lineTo(0,gh);
+  gctx.closePath();
+  gctx.fillStyle='rgba(0,255,204,0.08)';gctx.fill();
+}
+
+// ── FPS ────────────────────────────────────────────────
+function updateFPS(now){
+  fpsFrames++;
+  const elapsed=now-lastFPSTime;
+  if(elapsed>=500){
+    fps=Math.round(fpsFrames/(elapsed/1000));
+    fpsFrames=0;
+    lastFPSTime=now;
+    fpsHistory.push(fps);
+    if(fpsHistory.length>60) fpsHistory.shift();
+    if(fps>fpsMax) fpsMax=fps;
+    if(fps<fpsMin) fpsMin=fps;
+    fpsSum+=fps; fpsSamples++;
+    updateUI();
+    drawGraph();
+  }
+}
+
+function getFPSColor(f){
+  if(f>=90)  return '#00ff88';
+  if(f>=60)  return '#00ffcc';
+  if(f>=30)  return '#ffaa00';
+  return '#ff4455';
+}
+
+function getRating(f){
+  if(f>=120) return {t:'DIOS MODE',     c:'#00ffcc'}
+  if(f>=90)  return {t:'EXCELENTE',     c:'#00ff88'}
+  if(f>=60)  return {t:'MUY BIEN',      c:'#00ff88'}
+  if(f>=45)  return {t:'ACEPTABLE',     c:'#ffaa00'}
+  if(f>=30)  return {t:'LAGGY',         c:'#ffaa00'}
+  if(f>=15)  return {t:'DIAPOSITIVAS',  c:'#ff4455'}
+  return             {t:'TU PC SUFRE',  c:'#ff4455'}
+}
+
+function getStability(){
+  if(fpsHistory.length<4) return {pct:100,t:'--'}
+  const avg=fpsSum/fpsSamples;
+  const variance=fpsHistory.reduce((s,f)=>s+Math.abs(f-avg),0)/fpsHistory.length;
+  const stab=Math.max(0,Math.min(100,100-variance*2));
+  let t='ESTABLE';
+  if(stab<80) t='IRREGULAR';
+  if(stab<60) t='INESTABLE';
+  return {pct:Math.round(stab), t};
+}
+
+function updateUI(){
+  const col=getFPSColor(fps);
+  const r=getRating(fps);
+  const avg=fpsSamples?Math.round(fpsSum/fpsSamples):0;
+  const sorted=[...fpsHistory].sort((a,b)=>a-b);
+  const low1=sorted[Math.floor(sorted.length*0.01)]||fps;
+  const stab=getStability();
+  const elapsed=Math.round((performance.now()-startTime)/1000);
+  const pct=Math.min(100,fps/144*100);
+  const cnt=PARTICLE_COUNTS[mode];
+
+  // Central
+  document.getElementById('fps-num').textContent=fps||'--';
+  document.getElementById('fps-num').style.color=col;
+  document.getElementById('fps-bar').style.width=pct+'%';
+  document.getElementById('fps-bar').style.background=col;
+  document.getElementById('rating-text').textContent=r.t;
+  document.getElementById('rating-text').style.color=r.c;
+
+  // Panel izq
+  document.getElementById('s-fps').textContent=fps;
+  document.getElementById('s-fps').style.color=col;
+  document.getElementById('s-max').textContent=fpsMax;
+  document.getElementById('s-min').textContent=fpsMin===Infinity?'--':fpsMin;
+  document.getElementById('s-min').className='v'+(fpsMin<30?' bad':fpsMin<60?' warn':'');
+  document.getElementById('s-avg').textContent=avg;
+  document.getElementById('s-low').textContent=low1;
+  document.getElementById('s-frames').textContent=frameCount.toLocaleString();
+  document.getElementById('s-parts').textContent=cnt;
+  document.getElementById('b-parts').style.width=(cnt/2000*100)+'%';
+  document.getElementById('s-draws').textContent=(cnt*2+COLS).toLocaleString();
+  document.getElementById('b-draws').style.width=Math.min(100,cnt/20)+'%';
+
+  // Panel der
+  document.getElementById('s-res').textContent=W+'x'+H;
+  document.getElementById('s-dpr').textContent=devicePixelRatio.toFixed(1)+'x';
+  document.getElementById('s-mode').textContent=mode.toUpperCase();
+  document.getElementById('s-time').textContent=elapsed+'s';
+  document.getElementById('s-rating').textContent=r.t;
+  document.getElementById('s-rating').style.color=r.c;
+  document.getElementById('s-stab').textContent=stab.pct+'% '+stab.t;
+  document.getElementById('b-stab').style.width=stab.pct+'%';
+  document.getElementById('b-stab').style.background=stab.pct>80?'#00ffcc':stab.pct>60?'#ffaa00':'#ff4455';
+}
+
+// ── MODO ───────────────────────────────────────────────
+function setMode(m){
+  mode=m;
+  initParticles();
+  ['normal','medium','heavy','stress'].forEach(x=>{
+    document.getElementById('btn-'+x).className='btn'+(x==='stress'?' red':'')+(x===m?' active':'');
+  });
+  document.getElementById('stress-label').style.display=m==='stress'?'block':'none';
+  document.getElementById('s-mode').textContent=m.toUpperCase();
+}
+
+function resetStats(){
+  fpsMax=0;fpsMin=Infinity;fpsSum=0;fpsSamples=0;
+  fpsHistory=[];frameCount=0;startTime=performance.now();
+}
+
+// ── MOUSE / TOUCH ──────────────────────────────────────
+window.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+window.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  mouseX=e.touches[0].clientX;mouseY=e.touches[0].clientY;
+},{passive:false});
+window.addEventListener('touchstart',e=>{
+  mouseX=e.touches[0].clientX;mouseY=e.touches[0].clientY;
+});
+
+// ── DISPOSITIVO ────────────────────────────────────────
+const ua=navigator.userAgent;
+const dev=/(mobile|android|iphone|ipad)/i.test(ua)?'MOBILE':
+           /(tablet|ipad)/i.test(ua)?'TABLET':'PC/DESKTOP';
+document.getElementById('s-device').textContent=dev;
+
+// ── CLOCK ──────────────────────────────────────────────
+function tick(){document.getElementById('clock').textContent=new Date().toUTCString().slice(17,25)+' UTC';}
+tick();setInterval(tick,1000);
+
+// ── LOOP PRINCIPAL ─────────────────────────────────────
+function loop(now){
+  updateFPS(now);
+  frameCount++;
+  drawMatrix();
+  drawConnections();
+  updateParticles();
+  drawPlanet();
+  drawExtras();
+  requestAnimationFrame(loop);
+}
+
+initParticles();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
